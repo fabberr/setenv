@@ -230,12 +230,6 @@ while [ $# -gt 0 ]; do
                 printf "Invalid value for <filename> argument: file %s not found.\n" "$ENV_FILE" >&2
                 return 1
             fi
-
-            # Ensure ENV_FILE is not empty
-            if [ ! -s "$ENV_FILE" ]; then
-                printf "Invalid value for <filename> argument: file %s is empty.\n" "$ENV_FILE" >&2
-                return 1
-            fi
             shift
             ;;
     esac
@@ -244,6 +238,12 @@ done
 ################################################################################
 #################################### SCRIPT ####################################
 ################################################################################
+
+# Ensure ENV_FILE is not empty
+if [ ! -s "$ENV_FILE" ]; then
+    printf "Invalid value for <filename> argument: file %s is empty.\n" "$ENV_FILE" >&2
+    return 1
+fi
 
 log_info "Loading environment variables from $ENV_FILE"
 if [ "$LOG_EXPORTED_VARIABLES" -eq $true ]; then
