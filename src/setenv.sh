@@ -55,7 +55,7 @@
 ##         Note: Passing this option will overide any value set with a preceding
 ##         --verbosity option.
 ##
-## VERSION: 1.0.3
+## VERSION: 1.0.4
 ##
 ## DEPENDENCIES:
 ##
@@ -258,13 +258,19 @@ while IFS= read -r line; do
         continue
     fi
 
-    # Extract the key and value by splitting the line on `=`
+    # Extract the key and value
     key=$(echo "$line" | cut -d'=' -f1)
     value=$(echo "$line" | cut -d'=' -f2-)
 
     # Ensure key is valid
     if ! echo "$key" | grep -qE '^[A-Z0-9_]+$'; then
-        log_warning "Skipping invalid variable: $key."
+        log_warning "Invalid key $key. Skipping."
+        continue
+    fi
+
+    # Ensure the value is not empty
+    if [ -z "$value" ]; then
+        log_warning "Invalid value for $key: The value cannot be empty. Skipping."
         continue
     fi
 
