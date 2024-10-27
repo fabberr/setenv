@@ -55,7 +55,7 @@
 ##         Note: Passing this option will overide any value set with a preceding
 ##         --verbosity option.
 ##
-## VERSION: 1.0.0
+## VERSION: 1.0.3
 ##
 ## DEPENDENCIES:
 ##
