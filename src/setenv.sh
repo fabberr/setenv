@@ -48,12 +48,6 @@
 ##
 ##         Note: warning and error messages are also logged to stderr.
 ##
-##     --silent, -s
-##         Alias for `--verbosity=none` option.
-##
-##         Note: Passing this option will overide any value set with a preceding
-##         --verbosity option.
-## 
 ##     --verbose, -v
 ##         Alias for `--verbosity=error` option.
 ##         Additionally, every exported variable will also be logged.
@@ -221,10 +215,6 @@ while [ $# -gt 0 ]; do
                     printf "Unknown log level provided for --verbosity option: %s.\n" "${1#*=}" >&2
                     return 1
             esac
-            shift
-            ;;
-        -s|--silent)
-            LOG_LEVEL="$LOG_LEVEL_NONE"
             shift
             ;;
         -v|--verbose)
