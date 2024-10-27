@@ -41,7 +41,7 @@
 ##     --verbosity=<log-level>
 ##         Sets verbosity of the log messages to one of the following levels:
 ##
-##         none         Disables all logging.
+##         none         Disables all logging (default option).
 ##         info         Logs information messages.
 ##         warning      Logs information and warning messages.
 ##         error        Enables logging of all messages.
@@ -65,8 +65,6 @@
 ##
 ## DEPENDENCIES:
 ##
-##     ECHO(1)      Piping strings into other commands. 
-##     PRINTF(1)    Logging messages to stdout/stderr.
 ##     GREP(1)      Pattern matching for parsing logic.
 ##     CUT(1)       Splitting key-value pairs read from the file.
 ##     REALPATH(1)  Expanding relative into absolute paths.
@@ -91,9 +89,9 @@ LOG_LEVEL_WARNING=2 # Only information and warning messages will be logged.
 LOG_LEVEL_ERROR=3   # All messages will be logged.
 
 # Initialize control variables with default values
-ENV_FILE="./dev.env"                # Path to the file to load the variables from.
-LOG_LEVEL=$LOG_LEVEL_INFO           # Determines the log level.
-ENABLE_LOGGING_EXPORTED_VARIABLES=0 # Flag. Set to enable logging of exported variables.
+ENV_FILE="./dev.env"            # Path to the file to load the variables from.
+LOG_LEVEL="$LOG_LEVEL_NONE"     # Determines the log level.
+LOG_EXPORTED_VARIABLES="$false" # Enables logging of exported variables.
 
 ################################################################################
 ################################## FUNCTIONS ###################################
@@ -104,8 +102,7 @@ ENABLE_LOGGING_EXPORTED_VARIABLES=0 # Flag. Set to enable logging of exported va
 #     Logs messages to standard output streams, depending on the current value
 #     of $LOG_LEVEL.
 #
-#     If $LOG_LEVEL is set to LOG_LEVEL_NONE, the function is a no-op (unless
-#     `override_level` is set to true).
+#     If $LOG_LEVEL is set to LOG_LEVEL_NONE, the function is a no-op.
 #
 # Arguments:
 #
@@ -116,32 +113,23 @@ ENABLE_LOGGING_EXPORTED_VARIABLES=0 # Flag. Set to enable logging of exported va
 #         The message to be logged to stdout.
 #         If `level` is set to LOG_LEVEL_WARNING or LOG_LEVEL_ERROR, the message
 #         will also be logged to stderr.
-#
-#     $3: override_level - boolean
-#         If set, will log the message irregardless of the value of $LOG_LEVEL.
-#
-# Exit status:
-#     Success (0) when a message is logged, failure (1) otherwise.
 log() {
     local level="$1"
     local message="$2"
-    local override_level="$3"
 
-    if [ "$level" -ge "$LOG_LEVEL" ] && [ "$override_level" -eq $false ]; then
-        return 1
+    if [ "$level" -le "$LOG_LEVEL" ]; then
+        case "$level" in
+            "$LOG_LEVEL_INFO")
+                printf "[setenv] [INFO] %s\n" "$message"
+                ;;
+            "$LOG_LEVEL_WARNING")
+                printf "[setenv] [WARNING] %s\n" "$message" >&2
+                ;;
+            "$LOG_LEVEL_ERROR")
+                printf "[setenv] [ERROR] %s\n" "$message" >&2
+                ;;
+        esac
     fi
-
-    case "$level" in
-        "$LOG_LEVEL_INFO")
-            printf "[setenv] [INFO] %s\n" "$message"
-            ;;
-        "$LOG_LEVEL_WARNING")
-            printf "[setenv] [WARNING] %s\n" "$message" >&2
-            ;;
-        "$LOG_LEVEL_ERROR")
-            printf "[setenv] [ERROR] %s\n" "$message" >&2
-            ;;
-    esac
 }
 
 # Summary:
@@ -150,14 +138,8 @@ log() {
 # Arguments:
 #     $1: message - string
 #         The information message to be logged.
-#
-#     $2: override_level - boolean
-#         If set, will log the message irregardless of the value of $LOG_LEVEL.
-#
-# Exit status:
-#     Success (0) when a message is logged, failure (1) otherwise.
 log_info() {
-    log "$LOG_LEVEL_INFO" "$1" "$2"
+    log "$LOG_LEVEL_INFO" "$1"
 }
 
 # Summary:
@@ -166,14 +148,8 @@ log_info() {
 # Arguments:
 #     $1: message - string
 #         The warning message to be logged.
-#
-#     $2: override_level - boolean
-#         If set, will log the message irregardless of the value of $LOG_LEVEL.
-#
-# Exit status:
-#     Success (0) when a message is logged, failure (1) otherwise.
 log_warning() {
-    log "$LOG_LEVEL_WARNING" "$1" "$2"
+    log "$LOG_LEVEL_WARNING" "$1"
 }
 
 # Summary:
@@ -182,14 +158,8 @@ log_warning() {
 # Arguments:
 #     $1: message - string
 #         The error message to be logged.
-#
-#     $2: override_level - boolean
-#         If set, will log the message irregardless of the value of $LOG_LEVEL.
-#
-# Exit status:
-#     Success (0) when a message is logged, failure (1) otherwise.
 log_error() {
-    log "$LOG_LEVEL_ERROR" "$1" "$2"
+    log "$LOG_LEVEL_ERROR" "$1"
 }
 
 # Summary:
@@ -199,7 +169,7 @@ log_error() {
 #     $1: command_name - string
 #         Name of the command to check availability.
 #
-# Exit status:
+# return status:
 #     Success (0) when the command exists, failure (1) otherwise.
 command_exists() {
     command -v "$1" >/dev/null 2>&1
@@ -210,8 +180,6 @@ command_exists() {
 ################################################################################
 
 required_commands=(
-    "echo"
-    "printf"
     "grep"
     "cut"
     "realpath"
@@ -225,8 +193,8 @@ for cmd in "${required_commands[@]}"; do
 done
 
 if [ "${#missing_commands[@]}" -ne 0 ]; then
-    log_error "The following commands are required but were not found: ${missing_commands[*]}" $true
-    exit 1
+    printf "The following commands are required but were not found: %s\n" "${missing_commands[*]}" >&2
+    return 1
 fi
 
 ################################################################################
@@ -250,8 +218,8 @@ while [ $# -gt 0 ]; do
                     LOG_LEVEL="$LOG_LEVEL_ERROR"
                     ;;
                 *)
-                    log_error "Unknown log level provided for --verbosity option: ${1#*=}." $true
-                    exit 1
+                    printf "Unknown log level provided for --verbosity option: %s.\n" "${1#*=}" >&2
+                    return 1
             esac
             shift
             ;;
@@ -261,7 +229,7 @@ while [ $# -gt 0 ]; do
             ;;
         -v|--verbose)
             LOG_LEVEL="$LOG_LEVEL_ERROR"
-            ENABLE_LOGGING_EXPORTED_VARIABLES=1
+            LOG_EXPORTED_VARIABLES=1
             shift
             ;;
         *)
@@ -269,14 +237,14 @@ while [ $# -gt 0 ]; do
             ENV_FILE="$1"
 
             if [ ! -f "$ENV_FILE" ]; then
-                log_error "Invalid <filename>: file $ENV_FILE not found." $true
-                exit 1
+                printf "Invalid value for <filename> argument: file %s not found.\n" "$ENV_FILE" >&2
+                return 1
             fi
 
             # Ensure ENV_FILE is not empty
             if [ ! -s "$ENV_FILE" ]; then
-                log_error "Invalid <filename>: file $ENV_FILE is empty." $true
-                exit 1
+                printf "Invalid value for <filename> argument: file %s is empty.\n" "$ENV_FILE" >&2
+                return 1
             fi
             shift
             ;;
@@ -288,7 +256,7 @@ done
 ################################################################################
 
 log_info "Loading environment variables from $ENV_FILE"
-if [ "$ENABLE_LOGGING_EXPORTED_VARIABLES" -eq $true ]; then
+if [ "$LOG_EXPORTED_VARIABLES" -eq $true ]; then
     log_info "Verbose mode is enabled, exported variables will be logged."
 fi
 
@@ -306,7 +274,7 @@ while IFS= read -r line; do
 
     # Ensure key is valid
     if ! echo "$key" | grep -qE '^[A-Z0-9_]+$'; then
-        log_warning "Invalid variable name $key. Skipping."
+        log_warning "Skipping invalid variable: $key."
         continue
     fi
 
@@ -319,12 +287,12 @@ while IFS= read -r line; do
     export "$key=$value"
     (( EXPORTED_COUNT++ ))
 
-    if [ "$ENABLE_LOGGING_EXPORTED_VARIABLES" -eq $true ]; then
+    if [ "$LOG_EXPORTED_VARIABLES" -eq $true ]; then
         log_info "Exported variable: $key=$value"
     fi
 done < "$ENV_FILE" || {
     log_error "Failed to read $ENV_FILE."
-    exit 1
+    return 1
 }
 
 log_info "Done! Exported $EXPORTED_COUNT variable(s)."
