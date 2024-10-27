@@ -6,7 +6,7 @@ Export environment variables from file.
 
 Utility shell script for loading environment variables defined in `.env` files.
 
-Currently only supports UNIX-like operating systems. Tested on Linux with, but should work on MacOS as well.
+Currently only supports UNIX-like operating systems. Tested on Linux, but should work on BSD and MacOS as well.
 
 ## Dependencies
 
